@@ -164,6 +164,14 @@ sub vcl_recv {
                 call generate_session;
             }
         }
+        
+        # if Magento sent us a Set-Cookie header, we'll put it somewhere
+        # else for now
+        if (req.http.Set-Cookie) {
+            set req.http.X-Varnish-Set-Cookie = req.http.Set-Cookie;
+            unset req.http.Set-Cookie;
+        }
+
         if ({{force_cache_static}} &&
                 req.url ~ ".*\.(?:{{static_extensions}})(?=\?|&|$)") {
             # don't need cookies for static assets
@@ -274,12 +282,7 @@ sub vcl_fetch {
             set beresp.ttl = {{grace_period}}s;
             return (hit_for_pass);
         } else {
-            # if Magento sent us a Set-Cookie header, we'll put it somewhere
-            # else for now
-            if (beresp.http.Set-Cookie) {
-                set beresp.http.X-Varnish-Set-Cookie = beresp.http.Set-Cookie;
-                unset beresp.http.Set-Cookie;
-            }
+
             # we'll set our own cache headers if we need them
             unset beresp.http.Cache-Control;
             unset beresp.http.Expires;
