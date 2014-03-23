@@ -38,6 +38,12 @@ import std;
 
 {{admin_backend}}
 
+backend varnish_recur {
+  .host = "127.0.0.1";
+  .port = "80";
+}
+
+
 ## ACLs
 
 {{crawler_acl}}
@@ -162,14 +168,9 @@ sub vcl_recv {
             } else {
                 # it's a real user, make up a new session for them
                 call generate_session;
+                set req.backend = varnish_recur;
+                return (pipe);
             }
-        }
-        
-        # if Magento sent us a Set-Cookie header, we'll put it somewhere
-        # else for now
-        if (req.http.Set-Cookie) {
-            set req.http.X-Varnish-Set-Cookie = req.http.Set-Cookie;
-            unset req.http.Set-Cookie;
         }
 
         if ({{force_cache_static}} &&
@@ -282,6 +283,13 @@ sub vcl_fetch {
             set beresp.ttl = {{grace_period}}s;
             return (hit_for_pass);
         } else {
+        
+            # if Magento sent us a Set-Cookie header, we'll put it somewhere
+            # else for now
+            if (req.http.Set-Cookie) {
+                set req.http.X-Varnish-Set-Cookie = req.http.Set-Cookie;  
+                unset req.http.Set-Cookie;
+            }
 
             # we'll set our own cache headers if we need them
             unset beresp.http.Cache-Control;
